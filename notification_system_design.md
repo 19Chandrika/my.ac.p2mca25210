@@ -1,6 +1,7 @@
 # Stage 1: Notification System REST API Design
 
 ## Overview
+
 This document presents the REST API contract for a real-time notification system designed to deliver notifications to logged-in users. The system supports multiple notification types, user preferences, and real-time delivery mechanisms.
 
 ---
@@ -9,969 +10,479 @@ This document presents the REST API contract for a real-time notification system
 
 The notification platform should support the following core actions:
 
-1. **Retrieve Notifications** - Fetch user notifications with filtering and pagination
-2. **Mark as Read** - Update notification read status
-3. **Delete Notifications** - Remove notifications
-4. **Get Notification Preferences** - Retrieve user notification settings
-5. **Update Notification Preferences** - Modify notification delivery preferences
-6. **Create Notification** - Send notifications to users (internal/admin use)
-7. **Get Notification Categories** - Retrieve available notification types
-8. **Subscribe to Real-Time Updates** - Establish WebSocket connection for live notifications
+1. Retrieve Notifications
+2. Mark Notifications as Read
+3. Delete Notifications
+4. Get Notification Preferences
+5. Update Notification Preferences
+6. Create Notifications
+7. Get Notification Categories
+8. Subscribe to Real-Time Updates
 
 ---
 
-## REST API Endpoints
+# REST API Endpoints
 
-### 1. Retrieve User Notifications
+## 1. Retrieve Notifications
 
-**Endpoint:** `GET /api/v1/notifications`
+### Endpoint
 
-**Description:** Fetch all notifications for the authenticated user with pagination and filtering support.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Accept: application/json
-Content-Type: application/json
+```http
+GET /api/v1/notifications
 ```
 
-**Query Parameters:**
-```
-?page=0&size=20&status=unread&category=account&sortBy=createdAt&sortOrder=desc
-```
+### Description
 
-**Response (200 OK):**
+Fetch all notifications for the authenticated user.
+
+### Response
+
 ```json
 {
   "statusCode": 200,
-  "message": "Notifications retrieved successfully",
-  "data": {
-    "notifications": [
-      {
-        "id": "notif_12345",
-        "userId": "user_789",
-        "title": "Account Security Alert",
-        "message": "New login detected from a new device",
-        "category": "account",
-        "type": "security_alert",
-        "priority": "high",
-        "status": "unread",
-        "actionUrl": "/account/security",
-        "timestamp": "2026-05-06T10:30:00Z",
-        "createdAt": "2026-05-06T10:30:00Z",
-        "readAt": null,
-        "metadata": {
-          "deviceInfo": "Chrome on macOS",
-          "location": "San Francisco, CA"
-        }
-      },
-      {
-        "id": "notif_12346",
-        "userId": "user_789",
-        "title": "Course Enrollment Confirmation",
-        "message": "You have successfully enrolled in CS 101",
-        "category": "academic",
-        "type": "enrollment",
-        "priority": "normal",
-        "status": "read",
-        "actionUrl": "/courses/cs-101",
-        "timestamp": "2026-05-05T14:15:00Z",
-        "createdAt": "2026-05-05T14:15:00Z",
-        "readAt": "2026-05-05T14:20:00Z",
-        "metadata": {}
-      }
-    ],
-    "pagination": {
-      "currentPage": 0,
-      "pageSize": 20,
-      "totalElements": 45,
-      "totalPages": 3,
-      "hasNextPage": true,
-      "hasPreviousPage": false
-    }
-  }
-}
-```
-
-**Response (401 Unauthorized):**
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized - Invalid or missing authentication token",
-  "error": "UNAUTHORIZED",
-  "timestamp": "2026-05-06T10:30:00Z"
+  "message": "Notifications retrieved successfully"
 }
 ```
 
 ---
 
-### 2. Get Notification by ID
+## 2. Get Notification by ID
 
-**Endpoint:** `GET /api/v1/notifications/{notificationId}`
+### Endpoint
 
-**Description:** Retrieve a specific notification by its ID.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Accept: application/json
+```http
+GET /api/v1/notifications/{notificationId}
 ```
 
-**Path Parameters:**
-```
-notificationId: string (required) - The unique notification identifier
-```
+### Description
 
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notification retrieved successfully",
-  "data": {
-    "id": "notif_12345",
-    "userId": "user_789",
-    "title": "Account Security Alert",
-    "message": "New login detected from a new device",
-    "category": "account",
-    "type": "security_alert",
-    "priority": "high",
-    "status": "unread",
-    "actionUrl": "/account/security",
-    "timestamp": "2026-05-06T10:30:00Z",
-    "createdAt": "2026-05-06T10:30:00Z",
-    "readAt": null,
-    "metadata": {
-      "deviceInfo": "Chrome on macOS",
-      "location": "San Francisco, CA"
-    }
-  }
-}
-```
-
-**Response (404 Not Found):**
-```json
-{
-  "statusCode": 404,
-  "message": "Notification not found",
-  "error": "NOT_FOUND",
-  "timestamp": "2026-05-06T10:30:00Z"
-}
-```
+Retrieve a specific notification using notification ID.
 
 ---
 
-### 3. Mark Notification as Read
+## 3. Mark Notification as Read
 
-**Endpoint:** `PATCH /api/v1/notifications/{notificationId}/read`
+### Endpoint
 
-**Description:** Mark a single notification as read.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Content-Type: application/json
+```http
+PATCH /api/v1/notifications/{notificationId}/read
 ```
 
-**Path Parameters:**
-```
-notificationId: string (required) - The unique notification identifier
-```
+### Description
 
-**Request Body:**
-```json
-{
-  "readAt": "2026-05-06T10:35:00Z"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notification marked as read",
-  "data": {
-    "id": "notif_12345",
-    "status": "read",
-    "readAt": "2026-05-06T10:35:00Z"
-  }
-}
-```
+Mark a notification as read.
 
 ---
 
-### 4. Mark Multiple Notifications as Read
+## 4. Delete Notification
 
-**Endpoint:** `PATCH /api/v1/notifications/bulk/read`
+### Endpoint
 
-**Description:** Mark multiple notifications as read in a single request.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Content-Type: application/json
+```http
+DELETE /api/v1/notifications/{notificationId}
 ```
 
-**Request Body:**
-```json
-{
-  "notificationIds": [
-    "notif_12345",
-    "notif_12346",
-    "notif_12347"
-  ],
-  "readAt": "2026-05-06T10:35:00Z"
-}
-```
+### Description
 
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notifications marked as read",
-  "data": {
-    "successCount": 3,
-    "failureCount": 0,
-    "processedIds": [
-      "notif_12345",
-      "notif_12346",
-      "notif_12347"
-    ]
-  }
-}
-```
+Delete a notification.
 
 ---
 
-### 5. Delete Notification
+## 5. Get Notification Preferences
 
-**Endpoint:** `DELETE /api/v1/notifications/{notificationId}`
+### Endpoint
 
-**Description:** Delete a specific notification.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
+```http
+GET /api/v1/notifications/preferences
 ```
 
-**Path Parameters:**
-```
-notificationId: string (required) - The unique notification identifier
-```
+### Description
 
-**Response (204 No Content):**
-```
-(No response body)
-```
-
-**Response (404 Not Found):**
-```json
-{
-  "statusCode": 404,
-  "message": "Notification not found",
-  "error": "NOT_FOUND",
-  "timestamp": "2026-05-06T10:30:00Z"
-}
-```
+Retrieve user notification preferences.
 
 ---
 
-### 6. Delete Multiple Notifications
+## 6. Update Notification Preferences
 
-**Endpoint:** `DELETE /api/v1/notifications/bulk`
+### Endpoint
 
-**Description:** Delete multiple notifications in a single request.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Content-Type: application/json
+```http
+PUT /api/v1/notifications/preferences
 ```
 
-**Request Body:**
-```json
-{
-  "notificationIds": [
-    "notif_12345",
-    "notif_12346"
-  ]
-}
-```
+### Description
 
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notifications deleted successfully",
-  "data": {
-    "deletedCount": 2,
-    "failedCount": 0
-  }
-}
-```
+Update user notification preferences.
 
 ---
 
-### 7. Get Notification Preferences
+## 7. Get Notification Categories
 
-**Endpoint:** `GET /api/v1/notifications/preferences`
+### Endpoint
 
-**Description:** Retrieve notification delivery preferences for the authenticated user.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Accept: application/json
+```http
+GET /api/v1/notifications/categories
 ```
 
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notification preferences retrieved successfully",
-  "data": {
-    "userId": "user_789",
-    "globalSettings": {
-      "enabled": true,
-      "emailNotifications": true,
-      "pushNotifications": true,
-      "inAppNotifications": true,
-      "smsNotifications": false,
-      "quietHoursEnabled": true,
-      "quietHoursStart": "22:00",
-      "quietHoursEnd": "08:00",
-      "timezone": "America/Los_Angeles"
-    },
-    "categoryPreferences": [
-      {
-        "category": "account",
-        "enabled": true,
-        "emailEnabled": true,
-        "pushEnabled": true,
-        "frequency": "immediate"
-      },
-      {
-        "category": "academic",
-        "enabled": true,
-        "emailEnabled": true,
-        "pushEnabled": false,
-        "frequency": "daily_digest"
-      },
-      {
-        "category": "promotions",
-        "enabled": false,
-        "emailEnabled": false,
-        "pushEnabled": false,
-        "frequency": "off"
-      },
-      {
-        "category": "system",
-        "enabled": true,
-        "emailEnabled": false,
-        "pushEnabled": true,
-        "frequency": "immediate"
-      }
-    ]
-  }
-}
-```
+### Description
+
+Retrieve supported notification categories.
 
 ---
 
-### 8. Update Notification Preferences
+## 8. Create Notification
 
-**Endpoint:** `PUT /api/v1/notifications/preferences`
+### Endpoint
 
-**Description:** Update notification delivery preferences for the authenticated user.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Content-Type: application/json
+```http
+POST /api/v1/notifications
 ```
 
-**Request Body:**
-```json
-{
-  "globalSettings": {
-    "enabled": true,
-    "emailNotifications": true,
-    "pushNotifications": false,
-    "inAppNotifications": true,
-    "smsNotifications": false,
-    "quietHoursEnabled": true,
-    "quietHoursStart": "22:00",
-    "quietHoursEnd": "08:00",
-    "timezone": "America/Los_Angeles"
-  },
-  "categoryPreferences": [
-    {
-      "category": "promotions",
-      "enabled": false,
-      "emailEnabled": false,
-      "pushEnabled": false,
-      "frequency": "off"
-    },
-    {
-      "category": "academic",
-      "enabled": true,
-      "emailEnabled": true,
-      "pushEnabled": true,
-      "frequency": "immediate"
-    }
-  ]
-}
-```
+### Description
 
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notification preferences updated successfully",
-  "data": {
-    "userId": "user_789",
-    "globalSettings": {
-      "enabled": true,
-      "emailNotifications": true,
-      "pushNotifications": false,
-      "inAppNotifications": true,
-      "smsNotifications": false,
-      "quietHoursEnabled": true,
-      "quietHoursStart": "22:00",
-      "quietHoursEnd": "08:00",
-      "timezone": "America/Los_Angeles"
-    },
-    "updatedAt": "2026-05-06T10:40:00Z"
-  }
-}
-```
+Create and send a notification.
 
----
+### Request Body
 
-### 9. Get Notification Categories
-
-**Endpoint:** `GET /api/v1/notifications/categories`
-
-**Description:** Retrieve all available notification categories and types supported by the system.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Accept: application/json
-```
-
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notification categories retrieved successfully",
-  "data": {
-    "categories": [
-      {
-        "id": "account",
-        "displayName": "Account",
-        "description": "Notifications related to account security and activity",
-        "types": [
-          {
-            "type": "security_alert",
-            "displayName": "Security Alert",
-            "description": "Login attempts, password changes, etc.",
-            "priority": "high"
-          },
-          {
-            "type": "profile_update",
-            "displayName": "Profile Update",
-            "description": "Changes to profile information",
-            "priority": "normal"
-          }
-        ]
-      },
-      {
-        "id": "academic",
-        "displayName": "Academic",
-        "description": "Notifications related to courses and academic activities",
-        "types": [
-          {
-            "type": "enrollment",
-            "displayName": "Enrollment Confirmation",
-            "description": "Course enrollment updates",
-            "priority": "normal"
-          },
-          {
-            "type": "grade_posted",
-            "displayName": "Grade Posted",
-            "description": "When a grade is published",
-            "priority": "high"
-          }
-        ]
-      },
-      {
-        "id": "system",
-        "displayName": "System",
-        "description": "System maintenance and important updates",
-        "types": [
-          {
-            "type": "maintenance",
-            "displayName": "Maintenance Alert",
-            "description": "Scheduled maintenance notifications",
-            "priority": "normal"
-          }
-        ]
-      },
-      {
-        "id": "promotions",
-        "displayName": "Promotions",
-        "description": "Special offers and promotional content",
-        "types": [
-          {
-            "type": "offer",
-            "displayName": "Special Offer",
-            "description": "Limited-time promotions",
-            "priority": "low"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
----
-
-### 10. Create Notification (Admin/Internal Use)
-
-**Endpoint:** `POST /api/v1/notifications`
-
-**Description:** Create and send a notification to users. Typically used by internal services or admin users.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Content-Type: application/json
-X-Request-ID: {UNIQUE_REQUEST_ID}
-```
-
-**Request Body:**
 ```json
 {
   "recipients": {
     "type": "user",
-    "targetIds": ["user_789", "user_790"]
+    "targetIds": [
+      "user_789"
+    ]
   },
-  "title": "Course Registration Now Open",
-  "message": "Spring 2026 course registration is now available",
+  "title": "Course Registration Open",
+  "message": "Spring 2026 course registration is available",
   "category": "academic",
   "type": "course_registration",
-  "priority": "high",
-  "actionUrl": "/courses/register",
-  "templateId": "course_registration_v1",
-  "variables": {
-    "semester": "Spring 2026",
-    "deadline": "2026-05-31"
-  },
-  "deliveryChannels": {
-    "inApp": true,
-    "email": true,
-    "push": true,
-    "sms": false
-  },
-  "scheduledFor": "2026-05-06T12:00:00Z",
-  "expiresAt": "2026-05-13T23:59:59Z"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "statusCode": 201,
-  "message": "Notification created and queued for delivery",
-  "data": {
-    "campaignId": "campaign_5678",
-    "notificationIds": [
-      "notif_12349",
-      "notif_12350"
-    ],
-    "recipientCount": 2,
-    "status": "queued",
-    "createdAt": "2026-05-06T10:50:00Z"
-  }
-}
-```
-
-**Response (400 Bad Request):**
-```json
-{
-  "statusCode": 400,
-  "message": "Invalid notification payload",
-  "error": "VALIDATION_ERROR",
-  "details": {
-    "field": "recipients.targetIds",
-    "message": "At least one recipient ID must be provided"
-  },
-  "timestamp": "2026-05-06T10:50:00Z"
+  "priority": "high"
 }
 ```
 
 ---
 
-### 11. Get Notification Delivery Status
+# Real-Time Notification Mechanism
 
-**Endpoint:** `GET /api/v1/notifications/{notificationId}/status`
+## WebSocket Endpoint
 
-**Description:** Retrieve the delivery status of a notification across different channels.
-
-**Request Headers:**
-```
-Authorization: Bearer {JWT_TOKEN}
-Accept: application/json
+```text
+wss://api.yourdomain.com/ws/notifications
 ```
 
-**Path Parameters:**
-```
-notificationId: string (required) - The unique notification identifier
-```
+### WebSocket Event Example
 
-**Response (200 OK):**
-```json
-{
-  "statusCode": 200,
-  "message": "Notification delivery status retrieved successfully",
-  "data": {
-    "notificationId": "notif_12345",
-    "deliveryStatus": [
-      {
-        "channel": "inApp",
-        "status": "delivered",
-        "deliveredAt": "2026-05-06T10:30:05Z",
-        "readAt": "2026-05-06T10:35:00Z"
-      },
-      {
-        "channel": "email",
-        "status": "delivered",
-        "deliveredAt": "2026-05-06T10:30:10Z",
-        "bounced": false
-      },
-      {
-        "channel": "push",
-        "status": "failed",
-        "failureReason": "Device token expired",
-        "attemptedAt": "2026-05-06T10:30:08Z"
-      }
-    ],
-    "overallStatus": "partially_delivered"
-  }
-}
-```
-
----
-
-## Real-Time Notifications Mechanism
-
-### WebSocket Connection for Live Updates
-
-**Protocol:** WebSocket over TLS (WSS)
-
-**Endpoint:** `wss://api.yourdomain.com/ws/notifications`
-
-**Description:** Establishes a persistent WebSocket connection to receive real-time notification updates.
-
-#### Connection Handshake
-
-**Client Connection Request:**
-```
-GET /ws/notifications HTTP/1.1
-Host: api.yourdomain.com
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Key: {BASE64_ENCODED_KEY}
-Sec-WebSocket-Version: 13
-Authorization: Bearer {JWT_TOKEN}
-X-User-ID: user_789
-```
-
-**Server Response:**
-```
-HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Accept: {CALCULATED_ACCEPT_KEY}
-```
-
-#### WebSocket Message Format
-
-**Connection Confirmation (Server → Client):**
-```json
-{
-  "type": "connection_established",
-  "data": {
-    "connectionId": "conn_abc123",
-    "userId": "user_789",
-    "timestamp": "2026-05-06T10:55:00Z"
-  }
-}
-```
-
-**Heartbeat/Ping (Server → Client):**
-```json
-{
-  "type": "ping",
-  "data": {
-    "timestamp": "2026-05-06T11:00:00Z"
-  }
-}
-```
-
-**Client Heartbeat Response (Client → Server):**
-```json
-{
-  "type": "pong",
-  "data": {
-    "timestamp": "2026-05-06T11:00:00Z"
-  }
-}
-```
-
-**New Notification Received (Server → Client):**
 ```json
 {
   "type": "notification:new",
   "data": {
-    "id": "notif_12351",
-    "userId": "user_789",
+    "id": "notif_12345",
     "title": "New Assignment Posted",
-    "message": "CS 101: Assignment 5 has been posted",
-    "category": "academic",
-    "type": "assignment",
-    "priority": "normal",
-    "status": "unread",
-    "actionUrl": "/courses/cs-101/assignments/5",
-    "timestamp": "2026-05-06T11:05:00Z",
-    "metadata": {}
-  }
-}
-```
-
-**Notification Status Update (Server → Client):**
-```json
-{
-  "type": "notification:updated",
-  "data": {
-    "notificationId": "notif_12351",
-    "status": "read",
-    "readAt": "2026-05-06T11:10:00Z"
-  }
-}
-```
-
-**Multiple Notifications (Server → Client):**
-```json
-{
-  "type": "notifications:batch",
-  "data": {
-    "notifications": [
-      {
-        "id": "notif_12352",
-        "title": "Notification 1",
-        "message": "Content 1",
-        "category": "academic"
-      },
-      {
-        "id": "notif_12353",
-        "title": "Notification 2",
-        "message": "Content 2",
-        "category": "system"
-      }
-    ]
-  }
-}
-```
-
-**Subscribe to Notification Categories (Client → Server):**
-```json
-{
-  "type": "subscribe",
-  "data": {
-    "categories": ["academic", "account"],
-    "includeRead": false
-  }
-}
-```
-
-**Server Acknowledgment (Server → Client):**
-```json
-{
-  "type": "subscribe_ack",
-  "data": {
-    "status": "success",
-    "subscribedCategories": ["academic", "account"],
-    "message": "Successfully subscribed to categories"
-  }
-}
-```
-
-**Connection Error (Server → Client):**
-```json
-{
-  "type": "error",
-  "data": {
-    "code": "AUTH_FAILED",
-    "message": "Authentication token expired",
-    "action": "reconnect_with_new_token"
-  }
-}
-```
-
-**Disconnect (Server → Client):**
-```json
-{
-  "type": "connection_closed",
-  "data": {
-    "connectionId": "conn_abc123",
-    "reason": "user_logout",
-    "timestamp": "2026-05-06T11:15:00Z"
+    "message": "Assignment 5 is now available"
   }
 }
 ```
 
 ---
 
-## WebSocket Implementation Details
+# Error Handling
 
-### Connection Management
-
-- **Heartbeat Interval:** Server sends ping every 30 seconds
-- **Heartbeat Timeout:** Connection closes if no pong received within 60 seconds
-- **Reconnection Strategy:** Client should implement exponential backoff (1s, 2s, 4s, 8s max)
-- **Max Reconnection Attempts:** 5 attempts before notifying user
-- **Connection Timeout:** 30 seconds to establish handshake
-
-### Message Queue and Offline Delivery
-
-- **Offline Messages:** Messages are stored for 7 days
-- **Sync on Reconnect:** Client can request missed messages by timestamp
-- **Message Deduplication:** Messages include unique `messageId` to prevent duplicates
-
-**Request Missed Messages (Client → Server):**
-```json
-{
-  "type": "sync",
-  "data": {
-    "sinceTimestamp": "2026-05-06T11:00:00Z",
-    "limit": 50
-  }
-}
-```
-
-**Missed Messages Response (Server → Client):**
-```json
-{
-  "type": "sync_response",
-  "data": {
-    "missedNotifications": [
-      {
-        "id": "notif_12354",
-        "title": "Missed Notification",
-        "message": "You missed this notification",
-        "timestamp": "2026-05-06T11:05:00Z"
-      }
-    ],
-    "totalMissed": 1,
-    "syncComplete": true
-  }
-}
-```
-
----
-
-## Error Handling
-
-### Common HTTP Status Codes
-
-| Status Code | Scenario |
+| Status Code | Description |
 |---|---|
-| 200 | Successful GET or PATCH request |
-| 201 | Resource created successfully |
-| 204 | Successful deletion |
-| 400 | Bad request or validation error |
-| 401 | Unauthorized - invalid/missing token |
-| 403 | Forbidden - insufficient permissions |
-| 404 | Resource not found |
-| 409 | Conflict - resource state conflict |
-| 429 | Rate limit exceeded |
-| 500 | Internal server error |
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 404 | Not Found |
+| 500 | Internal Server Error |
 
-### Standard Error Response Format
+---
 
-```json
-{
-  "statusCode": 400,
-  "message": "Human-readable error message",
-  "error": "ERROR_CODE",
-  "details": {
-    "field": "fieldName",
-    "message": "Specific error details"
-  },
-  "timestamp": "2026-05-06T10:30:00Z",
-  "requestId": "req_12345"
-}
+# Security
+
+- JWT Authentication
+- HTTPS/WSS encryption
+- Rate limiting
+- Input validation
+- Audit logging
+
+---
+
+# Pagination Defaults
+
+- Default page size: 20
+- Maximum page size: 100
+
+---
+
+# Versioning Strategy
+
+- Current Version: v1
+- Endpoint Prefix: /api/v1
+
+---
+
+# Stage 2
+
+## Persistent Storage Choice
+
+PostgreSQL is selected as the persistent database for the notification system.
+
+### Reasons for Choosing PostgreSQL
+
+- Supports ACID transactions
+- Reliable and production ready
+- Strong indexing support
+- Handles structured relational data efficiently
+- Supports high concurrency
+- Scalable for large notification systems
+
+---
+
+# Database Schema
+
+## notifications Table
+
+| Column Name | Data Type | Constraints |
+|---|---|---|
+| id | BIGSERIAL | PRIMARY KEY |
+| user_id | VARCHAR(100) | NOT NULL |
+| title | VARCHAR(255) | NOT NULL |
+| message | TEXT | NOT NULL |
+| category | VARCHAR(100) | NOT NULL |
+| type | VARCHAR(100) | NOT NULL |
+| priority | VARCHAR(20) | NOT NULL |
+| status | VARCHAR(20) | DEFAULT 'unread' |
+| action_url | VARCHAR(500) | NULL |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+| read_at | TIMESTAMP | NULL |
+
+---
+
+# SQL Schema
+
+```sql
+CREATE TABLE notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    type VARCHAR(100) NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    status VARCHAR(20) DEFAULT 'unread',
+    action_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP NULL
+);
 ```
 
 ---
 
-## Security Considerations
+# Indexing Strategy
 
-1. **Authentication:** All endpoints require valid JWT token in Authorization header
-2. **Rate Limiting:** Maximum 100 requests per minute per user
-3. **CORS:** Specify allowed origins in response headers
-4. **Data Encryption:** All data in transit over HTTPS/WSS
-5. **Token Refresh:** JWT tokens expire in 1 hour, refresh tokens valid for 7 days
-6. **Audit Logging:** All notification actions logged for compliance
+```sql
+CREATE INDEX idx_user_notifications
+ON notifications(user_id);
 
-### Recommended Headers
+CREATE INDEX idx_user_status
+ON notifications(user_id, status);
 
-```
-Strict-Transport-Security: max-age=31536000; includeSubDomains
-X-Content-Type-Options: nosniff
-X-Frame-Options: DENY
-X-XSS-Protection: 1; mode=block
-Content-Security-Policy: default-src 'self'
+CREATE INDEX idx_created_at
+ON notifications(created_at DESC);
 ```
 
----
+### Benefits
 
-## Implementation Best Practices
-
-### Client-Side
-
-1. Always validate JWT token expiration before making requests
-2. Implement automatic reconnection for WebSocket with exponential backoff
-3. Cache notification preferences locally to minimize API calls
-4. Use pagination when fetching large notification lists
-5. Implement local notification deduplication
-
-### Server-Side
-
-1. Validate all input against defined JSON schemas
-2. Implement request ID tracking for debugging
-3. Use message queues (Redis, RabbitMQ) for reliable notification delivery
-4. Cache frequently accessed preferences in Redis
-5. Archive old notifications after 90 days
-6. Monitor WebSocket connection health and clean up stale connections
+- Faster unread notification queries
+- Faster sorting
+- Better performance for large datasets
 
 ---
 
-## Pagination and Filtering Defaults
+# Problems with Increasing Data Volume
 
-- **Default Page Size:** 20 notifications
-- **Max Page Size:** 100 notifications
-- **Default Sort:** By creation date (descending)
-- **Filterable Fields:** status, category, priority, type
+## 1. Slow Query Performance
+
+### Problems
+
+Queries become slower with millions of notifications.
+
+### Solutions
+
+- Add indexes
+- Use pagination
+- Optimize queries
 
 ---
 
-## Versioning Strategy
+## 2. Database Storage Growth
 
-- **Current Version:** v1
-- **Deprecation Policy:** APIs deprecated for 6 months before removal
-- **Version in Path:** `/api/v1/notifications`
-- **Backward Compatibility:** Maintained for at least 2 major versions
+### Problems
 
+Notification table size increases rapidly.
+
+### Solutions
+
+- Archive old notifications
+- Partition tables
+- Apply retention policies
+
+---
+
+## 3. High Concurrent Traffic
+
+### Problems
+
+Large concurrent requests overload database.
+
+### Solutions
+
+- Redis caching
+- Read replicas
+- Connection pooling
+
+---
+
+## 4. Real-Time Notification Delays
+
+### Problems
+
+High notification traffic may delay delivery.
+
+### Solutions
+
+- Kafka or RabbitMQ
+- Asynchronous processing
+- WebSocket scaling
+
+---
+
+# SQL Queries for REST APIs
+
+## 1. Retrieve Notifications
+
+### REST API
+
+```http
+GET /api/v1/notifications
+```
+
+### SQL Query
+
+```sql
+SELECT *
+FROM notifications
+WHERE user_id = 'user_789'
+ORDER BY created_at DESC
+LIMIT 20 OFFSET 0;
+```
+
+---
+
+## 2. Get Notification by ID
+
+### REST API
+
+```http
+GET /api/v1/notifications/{notificationId}
+```
+
+### SQL Query
+
+```sql
+SELECT *
+FROM notifications
+WHERE id = 1;
+```
+
+---
+
+## 3. Mark Notification as Read
+
+### REST API
+
+```http
+PATCH /api/v1/notifications/{notificationId}/read
+```
+
+### SQL Query
+
+```sql
+UPDATE notifications
+SET status = 'read',
+    read_at = CURRENT_TIMESTAMP
+WHERE id = 1;
+```
+
+---
+
+## 4. Delete Notification
+
+### REST API
+
+```http
+DELETE /api/v1/notifications/{notificationId}
+```
+
+### SQL Query
+
+```sql
+DELETE FROM notifications
+WHERE id = 1;
+```
+
+---
+
+## 5. Create Notification
+
+### REST API
+
+```http
+POST /api/v1/notifications
+```
+
+### SQL Query
+
+```sql
+INSERT INTO notifications
+(user_id, title, message, category, type, priority, status)
+VALUES
+(
+    'user_789',
+    'Course Registration Open',
+    'Spring 2026 registration is available',
+    'academic',
+    'course_registration',
+    'high',
+    'unread'
+);
+```
+
+---
+
+# Scalability Improvements
+
+- Redis caching
+- Kafka/RabbitMQ queues
+- Database partitioning
+- Read replicas
+- Horizontal WebSocket scaling
+
+---
+
+# Final Architecture
+
+Client Application  
+↓  
+REST API Gateway  
+↓  
+Notification Service  
+↓  
+PostgreSQL Database  
+↓  
+Redis Cache  
+↓  
+Kafka/RabbitMQ  
+↓  
+WebSocket Gateway
