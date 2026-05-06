@@ -486,3 +486,280 @@ Redis Cache
 Kafka/RabbitMQ  
 ↓  
 WebSocket Gateway
+
+
+# Stage 3
+
+## Problem Statement
+
+The notification system currently stores:
+
+- 50,000 students
+- 5,000,000 notifications
+
+The following query is becoming slow as data volume increases:
+
+```sql
+SELECT * FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt DESC;
+```
+
+---
+
+# Why the Query is Slow
+
+As the notification table grows to millions of records, the database performs large table scans to find unread notifications for a student.
+
+Problems include:
+
+- Full table scan on large dataset
+- Sorting overhead using `ORDER BY`
+- Increased disk I/O
+- Higher query execution time
+- Increased memory consumption
+
+---
+
+# Root Cause Analysis
+
+The query filters using:
+
+```sql
+studentID
+isRead
+```
+
+and sorts using:
+
+```sql
+createdAt DESC
+```
+
+If indexes are missing or improperly designed, PostgreSQL/MySQL cannot efficiently locate the required rows.
+
+---
+
+# Optimized Solution
+
+## 1. Add Composite Index
+
+The best optimization is to create a composite index matching the query pattern.
+
+### Optimized Index
+
+```sql
+CREATE INDEX idx_notifications_student_read_created
+ON notifications(studentID, isRead, createdAt DESC);
+```
+
+---
+
+# Why This Index Helps
+
+The database can now:
+
+1. Quickly locate rows for a specific student
+2. Filter unread notifications efficiently
+3. Return rows already sorted by `createdAt DESC`
+4. Avoid full table scans
+5. Reduce sorting cost
+
+---
+
+# Optimized Query
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt DESC
+LIMIT 50;
+```
+
+---
+
+# Additional Improvements
+
+## 2. Pagination
+
+Returning all unread notifications is inefficient.
+
+### Solution
+
+Use pagination:
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt DESC
+LIMIT 50 OFFSET 0;
+```
+
+### Benefits
+
+- Smaller result set
+- Reduced memory usage
+- Faster API response time
+
+---
+
+## 3. Avoid SELECT *
+
+Fetching unnecessary columns increases disk reads.
+
+### Optimized Query
+
+```sql
+SELECT id, title, message, createdAt
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt DESC
+LIMIT 50;
+```
+
+### Benefits
+
+- Reduced network transfer
+- Faster query execution
+- Better cache utilization
+
+---
+
+## 4. Database Partitioning
+
+With millions of notifications, table partitioning improves performance.
+
+### Suggested Partitioning
+
+Partition by:
+
+- studentID
+or
+- createdAt (monthly partitions)
+
+### Example
+
+```text
+notifications_2026_01
+notifications_2026_02
+notifications_2026_03
+```
+
+### Benefits
+
+- Smaller searchable partitions
+- Faster queries
+- Easier archival
+
+---
+
+## 5. Archiving Old Notifications
+
+Old notifications rarely accessed should be archived.
+
+### Strategy
+
+- Move notifications older than 1 year to archive tables
+- Keep active notifications in main table
+
+### Benefits
+
+- Smaller active dataset
+- Faster queries
+- Lower storage overhead
+
+---
+
+## 6. Redis Caching
+
+Unread notification counts are frequently requested.
+
+### Solution
+
+Store unread counts in Redis.
+
+### Example
+
+```text
+student:1042:unread_count = 12
+```
+
+### Benefits
+
+- Faster response time
+- Reduced database load
+- Better scalability
+
+---
+
+## 7. Read Replicas
+
+High read traffic can overload primary database.
+
+### Solution
+
+Use PostgreSQL/MySQL read replicas.
+
+### Benefits
+
+- Distribute read traffic
+- Improve scalability
+- Better availability
+
+---
+
+# Expected Performance Improvements
+
+| Optimization | Improvement |
+|---|---|
+| Composite Index | Major query speed improvement |
+| Pagination | Reduced response time |
+| Column Selection | Reduced memory usage |
+| Partitioning | Faster searches |
+| Archiving | Smaller active dataset |
+| Redis Cache | Reduced DB load |
+| Read Replicas | Better scalability |
+
+---
+
+# Final Optimized Query
+
+```sql
+SELECT id, title, message, createdAt
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt DESC
+LIMIT 50 OFFSET 0;
+```
+
+---
+
+# Recommended Final Index
+
+```sql
+CREATE INDEX idx_notifications_student_read_created
+ON notifications(studentID, isRead, createdAt DESC);
+```
+
+---
+
+# Final Recommendation
+
+For large-scale notification systems:
+
+- Use composite indexes
+- Avoid `SELECT *`
+- Use pagination
+- Archive old data
+- Use Redis caching
+- Add database partitioning
+- Use read replicas for scalability
+
+These optimizations ensure the notification system remains fast and scalable even with millions of notifications.
