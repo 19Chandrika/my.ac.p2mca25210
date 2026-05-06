@@ -15,9 +15,13 @@ public class Notification {
     public Notification() {
     }
 
-    public Notification(Long id, Long studentId, String title,
-                        String message, String type,
-                        boolean isRead, LocalDateTime createdAt) {
+    public Notification(Long id,
+                        Long studentId,
+                        String title,
+                        String message,
+                        String type,
+                        boolean isRead,
+                        LocalDateTime createdAt) {
 
         this.id = id;
         this.studentId = studentId;
