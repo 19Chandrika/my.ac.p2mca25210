@@ -18,7 +18,7 @@ public class Stage6PriorityInbox {
             "http://20.207.122.201/evaluation-service/notifications";
 
     private static final String TOKEN =
-    "actual_full_token_here";
+    "PTBMmQ";
     public static void main(String[] args) {
 
         try {
