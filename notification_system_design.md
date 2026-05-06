@@ -763,3 +763,462 @@ For large-scale notification systems:
 - Use read replicas for scalability
 
 These optimizations ensure the notification system remains fast and scalable even with millions of notifications.
+
+
+# Stage 4
+
+## Problem Statement
+
+Notifications are currently fetched from the database on every page load for every student.
+
+This causes:
+
+- Heavy database load
+- Increased response time
+- Poor user experience
+- High server resource usage
+- Scalability problems during peak traffic
+
+---
+
+# Recommended Solutions
+
+## 1. Redis Caching
+
+### Solution
+
+Store frequently accessed notifications and unread counts in Redis.
+
+### Example Cache
+
+```text
+student:1042:notifications
+student:1042:unread_count
+```
+
+### Workflow
+
+1. User requests notifications
+2. Application checks Redis first
+3. If cache exists → return cached data
+4. If cache miss → fetch from DB and update Redis
+
+### Benefits
+
+- Extremely fast reads
+- Reduced database load
+- Better response time
+
+### Tradeoffs
+
+| Pros | Cons |
+|---|---|
+| Fast access | Cache invalidation complexity |
+| Reduced DB traffic | Additional infrastructure |
+| Better scalability | Memory usage |
+
+---
+
+## 2. Pagination
+
+### Problem
+
+Fetching all notifications at once is expensive.
+
+### Solution
+
+Load notifications page by page.
+
+### Example
+
+```sql
+SELECT id, title, message, createdAt
+FROM notifications
+WHERE studentID = 1042
+ORDER BY createdAt DESC
+LIMIT 20 OFFSET 0;
+```
+
+### Benefits
+
+- Smaller response size
+- Faster API response
+- Reduced memory usage
+
+### Tradeoffs
+
+| Pros | Cons |
+|---|---|
+| Faster loading | More API calls |
+| Lower DB load | Pagination handling required |
+
+---
+
+## 3. Lazy Loading / Infinite Scroll
+
+### Solution
+
+Load additional notifications only when user scrolls.
+
+### Benefits
+
+- Better user experience
+- Reduced initial API load
+- Lower bandwidth usage
+
+### Tradeoffs
+
+| Pros | Cons |
+|---|---|
+| Faster initial page load | Additional frontend logic |
+| Reduced server load | Complex UI handling |
+
+---
+
+## 4. WebSocket-Based Real-Time Notifications
+
+### Problem
+
+Repeated polling overloads database.
+
+### Solution
+
+Use WebSockets to push notifications only when new notifications arrive.
+
+### Workflow
+
+1. Client opens WebSocket connection
+2. Server pushes new notifications instantly
+3. No repeated polling required
+
+### Benefits
+
+- Real-time updates
+- Reduced unnecessary API calls
+- Lower database load
+
+### Tradeoffs
+
+| Pros | Cons |
+|---|---|
+| Instant updates | Persistent connection management |
+| Lower polling traffic | Higher server memory usage |
+
+---
+
+## 5. Read Replicas
+
+### Solution
+
+Use database read replicas for notification fetching.
+
+### Benefits
+
+- Distributes read traffic
+- Reduces primary DB load
+- Better scalability
+
+### Tradeoffs
+
+| Pros | Cons |
+|---|---|
+| Better scalability | Replication lag |
+| Improved availability | Additional infrastructure cost |
+
+---
+
+## 6. Notification Archiving
+
+### Solution
+
+Archive old notifications into separate storage.
+
+### Benefits
+
+- Smaller active dataset
+- Faster query execution
+- Better indexing efficiency
+
+### Tradeoffs
+
+| Pros | Cons |
+|---|---|
+| Improved query performance | Archive management complexity |
+| Reduced storage pressure | Extra maintenance |
+
+---
+
+# Recommended Final Architecture
+
+Client Application  
+↓  
+API Gateway  
+↓  
+Notification Service  
+↓  
+Redis Cache  
+↓  
+PostgreSQL Primary DB  
+↓  
+Read Replicas  
+↓  
+Archive Storage
+
+---
+
+# Final Recommendation
+
+For best performance:
+
+- Use Redis caching
+- Implement pagination
+- Use lazy loading
+- Push notifications via WebSocket
+- Add read replicas
+- Archive old notifications
+
+This architecture significantly reduces database load and improves scalability.
+
+---
+
+# Stage 5
+
+## Problems in Existing Implementation
+
+Current pseudocode:
+
+```python
+function notify_all(student_ids: array, message: string):
+    for student_id in student_ids:
+        send_email(student_id, message)
+        save_to_db(student_id, message)
+        push_to_app(student_id, message)
+```
+
+### Issues
+
+1. Sequential processing is very slow
+2. One email failure may affect entire flow
+3. No retry mechanism
+4. High latency for 50,000 users
+5. Tight coupling between services
+6. No fault tolerance
+7. Poor scalability
+8. No asynchronous processing
+
+---
+
+# Why Email Failures Happened
+
+Logs show 200 email failures because:
+
+- Email APIs may timeout
+- Network issues
+- Rate limiting from email provider
+- Temporary SMTP failures
+- Sequential processing increases delays
+
+---
+
+# Recommended Architecture
+
+Use:
+
+- Message Queue (Kafka/RabbitMQ)
+- Asynchronous workers
+- Retry mechanism
+- Independent services
+- Batch processing
+
+---
+
+# Improved Design
+
+## Key Improvements
+
+### 1. Save Notification to DB First
+
+Notification persistence should happen first.
+
+Reason:
+
+- Ensures notification is never lost
+- Email delivery can retry later
+- In-app notifications can still work even if email fails
+
+---
+
+## 2. Use Message Queue
+
+Instead of directly calling services:
+
+```text
+Notification Service
+        ↓
+Message Queue
+        ↓
+Email Worker
+Push Worker
+Analytics Worker
+```
+
+### Benefits
+
+- Asynchronous execution
+- Better scalability
+- Retry support
+- Fault isolation
+
+---
+
+## 3. Retry Mechanism
+
+Failed emails should retry automatically.
+
+### Example Strategy
+
+- Retry 3 times
+- Exponential backoff
+- Dead letter queue for permanent failures
+
+---
+
+# Revised Pseudocode
+
+```python
+function notify_all(student_ids: array, message: string):
+
+    notification_ids = []
+
+    # Step 1: Save notifications in bulk
+    for student_id in student_ids:
+
+        notification_id = save_to_db(
+            student_id,
+            message,
+            status="PENDING"
+        )
+
+        notification_ids.append(notification_id)
+
+    # Step 2: Publish events asynchronously
+    for notification_id in notification_ids:
+
+        publish_to_queue(
+            topic="notification-events",
+            notification_id=notification_id
+        )
+```
+
+---
+
+# Email Worker
+
+```python
+function email_worker(event):
+
+    try:
+        send_email(event.student_id, event.message)
+
+        update_status(
+            event.notification_id,
+            "EMAIL_SENT"
+        )
+
+    except Exception:
+
+        retry_event(event)
+```
+
+---
+
+# Push Notification Worker
+
+```python
+function push_worker(event):
+
+    push_to_app(
+        event.student_id,
+        event.message
+    )
+```
+
+---
+
+# Why This Design Is Better
+
+| Improvement | Benefit |
+|---|---|
+| Async Processing | Faster execution |
+| Queue-Based Architecture | Better scalability |
+| Retry Mechanism | Improved reliability |
+| Bulk Inserts | Faster DB writes |
+| Independent Workers | Fault isolation |
+| Event-Driven Design | Easier scaling |
+
+---
+
+# Should Saving to DB and Sending Email Happen Together?
+
+## Recommendation
+
+No, they should not happen synchronously together.
+
+### Reason
+
+Email delivery is an external operation and may fail temporarily.
+
+If DB save and email are tightly coupled:
+
+- Entire transaction may fail
+- Notifications may be lost
+- User experience degrades
+
+### Better Approach
+
+1. Save notification to DB
+2. Publish async event
+3. Workers process email/push separately
+
+This guarantees durability and improves system resilience.
+
+---
+
+# Final Recommended Architecture
+
+Client/Admin  
+↓  
+Notification API  
+↓  
+PostgreSQL Database  
+↓  
+Kafka/RabbitMQ Queue  
+↓  
+Email Workers  
+Push Workers  
+Analytics Workers  
+↓  
+Redis Cache  
+↓  
+WebSocket Gateway
+
+---
+
+# Final Recommendation
+
+For large-scale notification delivery systems:
+
+- Use asynchronous queues
+- Avoid synchronous email sending
+- Save notifications before delivery
+- Use retries and dead letter queues
+- Use worker-based processing
+- Use bulk DB operations
+- Scale workers horizontally
+
+This architecture provides:
+
+- High reliability
+- Better fault tolerance
+- Faster processing
+- Enterprise scalability
