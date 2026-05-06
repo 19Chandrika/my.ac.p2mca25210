@@ -1222,3 +1222,111 @@ This architecture provides:
 - Better fault tolerance
 - Faster processing
 - Enterprise scalability
+
+# Stage 6
+
+## Objective
+
+Implement a Priority Inbox that always displays the top 10 most important unread notifications based on:
+
+- Notification Type Weight
+- Recency
+
+---
+
+# Priority Rules
+
+| Notification Type | Weight |
+|---|---|
+| Placement | 3 |
+| Result | 2 |
+| Event | 1 |
+
+Priority score is calculated using:
+
+```text
+(typeWeight * 100) + recencyScore
+```
+
+More recent notifications receive higher scores.
+
+---
+
+# Approach Used
+
+The implementation uses:
+
+- Java
+- PriorityQueue (Min Heap)
+- REST API Integration
+- JSON Parsing
+
+The Notification API is used to fetch notifications dynamically instead of hardcoding data.
+
+---
+
+# Algorithm
+
+## Steps
+
+1. Fetch notifications from API
+2. Parse JSON response
+3. Calculate priority score
+4. Maintain Top 10 using PriorityQueue
+5. Display highest priority unread notifications
+
+---
+
+# Why PriorityQueue?
+
+PriorityQueue provides:
+
+- Efficient Top-K retrieval
+- Faster insertion
+- Automatic ordering
+
+Time Complexity:
+
+| Operation | Complexity |
+|---|---|
+| Insert | O(log n) |
+| Remove | O(log n) |
+| Top 10 Maintenance | O(n log 10) |
+
+---
+
+# Efficient Maintenance of Top 10
+
+As new notifications arrive continuously:
+
+- Insert notification into Min Heap
+- If heap size exceeds 10:
+  - Remove lowest priority notification
+
+This ensures:
+
+- Constant memory usage
+- Efficient processing
+- Real-time Top 10 maintenance
+
+---
+
+# Technologies Used
+
+- Java 17
+- Maven
+- org.json library
+- PriorityQueue
+- HttpURLConnection
+
+---
+
+# Screenshots
+
+Screenshots of terminal output displaying top priority notifications are uploaded in the GitHub repository.
+
+---
+
+# Conclusion
+
+The solution efficiently maintains the top 10 unread notifications using a Min Heap PriorityQueue and dynamically calculates importance based on notification type and recency.
